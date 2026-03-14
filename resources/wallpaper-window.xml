@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+    <requires lib="gtk" version="4.2"/>
+    <object class="GtkWindow" id="wallpaper-window">
+        <child>
+            <object class="GtkStack" id="wallpaper-stack">
+                <property name="transition-type">crossfade</property>
+                <property name="transition-duration">500</property>
+                <child>
+                    <object class="GtkPicture" id="wallpaper-picture-1">
+                        <property name="keep-aspect-ratio">true</property>
+                        <property name="content-fit">cover</property>
+                        <property name="hexpand">true</property>
+                        <property name="vexpand">true</property>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkPicture" id="wallpaper-picture-2">
+                        <property name="keep-aspect-ratio">true</property>
+                        <property name="content-fit">cover</property>
+                        <property name="hexpand">true</property>
+                        <property name="vexpand">true</property>
+                    </object>
+                </child>
+            </object>
+        </child>
+    </object>
+</interface>

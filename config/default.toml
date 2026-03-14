@@ -1,0 +1,6 @@
+[defaults]
+wallpaper_path = ""
+refresh_interval = 30
+ordering = "sequential"
+transition_type = "crossfade"
+layer = "background"
