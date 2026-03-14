@@ -9,7 +9,6 @@ A GTK4 desktop wallpaper manager for Linux with D-Bus integration and slideshow 
 The wallpaper daemon runs as a GTK4 application using [gtk4-layer-shell](https://github.com/wmww/gtk4-layer-shell) to display wallpapers on the background layer. It provides a D-Bus interface for runtime configuration.
 
 **Features:**
-- Single image wallpaper display
 - Slideshow mode with configurable directory
 - Configurable refresh interval (default: 30 seconds)
 - Two ordering modes: `random` or `sequential`
@@ -81,14 +80,39 @@ wallpaper-cli layer overlay
 cargo build --release
 ```
 
-## Running
+## Installation
 
-Start the daemon first, then use the CLI to control it:
+Install the binaries to `~/cargo/bin`:
 
 ```bash
-# Start the wallpaper daemon (in background or on startup)
-./target/release/wallpaperd
-
-# Control via CLI
-./target/release/wallpaper-cli path ~/Pictures/wallpapers
+cargo install --path .
 ```
+
+To run as a systemd service add the following unit file to `~/.config/systemd/user/wallpaperd.service` 
+
+```
+[Unit]
+Description=Wallpaper Daemon for Wayland
+PartOf=graphical-session.target
+Requires=graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=simple
+ExecStart=%h/.cargo/bin/wallpaperd
+Slice=session.slice
+Restart=on-failure
+
+[Install]
+WantedBy=greaphical-session.target
+```
+
+Enable the service to start on login:
+
+```bash
+systemctl --user enable wallpaperd.service
+systemctl --user start wallpaperd.service
+```
+
+*Note* - Only a single instance of the daemon can run at any one time.
