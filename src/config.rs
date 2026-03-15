@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use gtk4::StackTransitionType;
+
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum Layer {
     #[default]
@@ -16,6 +18,17 @@ impl From<&str> for Layer {
             "top" => Layer::Top,
             "overlay" => Layer::Overlay,
             _ => Layer::Background,
+        }
+    }
+}
+
+impl From<Layer> for gtk4_layer_shell::Layer {
+    fn from(layer: Layer) -> Self {
+        match layer {
+            Layer::Background => gtk4_layer_shell::Layer::Background,
+            Layer::Bottom => gtk4_layer_shell::Layer::Bottom,
+            Layer::Top => gtk4_layer_shell::Layer::Top,
+            Layer::Overlay => gtk4_layer_shell::Layer::Overlay,
         }
     }
 }
@@ -56,6 +69,15 @@ impl From<&str> for Ordering {
         match s.to_lowercase().as_str() {
             "sequential" => Ordering::Sequential,
             _ => Ordering::Random,
+        }
+    }
+}
+
+impl AsRef<str> for Ordering {
+    fn as_ref(&self) -> &'static str {
+        match self {
+            Ordering::Random => "random",
+            Ordering::Sequential => "sequential",
         }
     }
 }
@@ -106,6 +128,58 @@ impl From<&str> for TransitionType {
             "rotate_right" => TransitionType::RotateRight,
             "rotate_left_right" => TransitionType::RotateLeftRight,
             _ => TransitionType::Crossfade,
+        }
+    }
+}
+
+impl From<TransitionType> for StackTransitionType {
+    fn from(t: TransitionType) -> Self {
+        match t {
+            TransitionType::Crossfade => StackTransitionType::Crossfade,
+            TransitionType::None => StackTransitionType::None,
+            TransitionType::SlideRight => StackTransitionType::SlideRight,
+            TransitionType::SlideLeft => StackTransitionType::SlideLeft,
+            TransitionType::SlideUp => StackTransitionType::SlideUp,
+            TransitionType::SlideDown => StackTransitionType::SlideDown,
+            TransitionType::SlideLeftRight => StackTransitionType::SlideLeftRight,
+            TransitionType::SlideUpDown => StackTransitionType::SlideUpDown,
+            TransitionType::OverUp => StackTransitionType::OverUp,
+            TransitionType::OverDown => StackTransitionType::OverDown,
+            TransitionType::OverLeft => StackTransitionType::OverLeft,
+            TransitionType::OverRight => StackTransitionType::OverRight,
+            TransitionType::UnderUp => StackTransitionType::UnderUp,
+            TransitionType::UnderDown => StackTransitionType::UnderDown,
+            TransitionType::UnderLeft => StackTransitionType::UnderLeft,
+            TransitionType::UnderRight => StackTransitionType::UnderRight,
+            TransitionType::RotateLeft => StackTransitionType::RotateLeft,
+            TransitionType::RotateRight => StackTransitionType::RotateRight,
+            TransitionType::RotateLeftRight => StackTransitionType::RotateLeftRight,
+        }
+    }
+}
+
+impl From<StackTransitionType> for TransitionType {
+    fn from(s: StackTransitionType) -> Self {
+        match s {
+            StackTransitionType::Crossfade => TransitionType::Crossfade,
+            StackTransitionType::SlideRight => TransitionType::SlideRight,
+            StackTransitionType::SlideLeft => TransitionType::SlideLeft,
+            StackTransitionType::SlideUp => TransitionType::SlideUp,
+            StackTransitionType::SlideDown => TransitionType::SlideDown,
+            StackTransitionType::SlideLeftRight => TransitionType::SlideLeftRight,
+            StackTransitionType::SlideUpDown => TransitionType::SlideUpDown,
+            StackTransitionType::OverUp => TransitionType::OverUp,
+            StackTransitionType::OverDown => TransitionType::OverDown,
+            StackTransitionType::OverLeft => TransitionType::OverLeft,
+            StackTransitionType::OverRight => TransitionType::OverRight,
+            StackTransitionType::UnderUp => TransitionType::UnderUp,
+            StackTransitionType::UnderDown => TransitionType::UnderDown,
+            StackTransitionType::UnderLeft => TransitionType::UnderLeft,
+            StackTransitionType::UnderRight => TransitionType::UnderRight,
+            StackTransitionType::RotateLeft => TransitionType::RotateLeft,
+            StackTransitionType::RotateRight => TransitionType::RotateRight,
+            StackTransitionType::RotateLeftRight => TransitionType::RotateLeftRight,
+            _ => TransitionType::None,
         }
     }
 }

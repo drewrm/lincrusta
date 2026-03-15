@@ -2,6 +2,10 @@
 
 A GTK4 desktop wallpaper manager for Linux with D-Bus integration and slideshow support.
 
+![Screenshot of the CLI](https://github.com/drewrm/lincrusta/blob/main/screenshot.png?raw=true)
+
+This has been built/tested on Fedora 43 with Niri Window Manager.
+
 ## Commands
 
 ### wallpaperd
@@ -17,7 +21,7 @@ The wallpaper daemon runs as a GTK4 application using [gtk4-layer-shell](https:/
 
 **Configuration:**
 
-The daemon reads default settings from `config/default.toml` or `~/.config/org.drewrm.wallpaperd/wallpaperd.toml`:
+The daemon reads default settings from `~/.config/org.drewrm.wallpaperd/wallpaperd.toml`:
 ```toml
 [defaults]
 wallpaper_path = ""

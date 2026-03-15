@@ -9,10 +9,10 @@ use crate::config::{Config, Layer, Ordering, TransitionType};
 static WALLPAPER_PATH: std::sync::OnceLock<Arc<Mutex<Option<String>>>> = std::sync::OnceLock::new();
 static WALLPAPER_DIR: std::sync::OnceLock<Arc<Mutex<Option<PathBuf>>>> = std::sync::OnceLock::new();
 static REFRESH_INTERVAL: std::sync::OnceLock<Arc<Mutex<Option<u64>>>> = std::sync::OnceLock::new();
-static ORDERING: std::sync::OnceLock<Arc<Mutex<Option<String>>>> = std::sync::OnceLock::new();
-static TRANSITION_TYPE: std::sync::OnceLock<Arc<Mutex<Option<String>>>> =
+static ORDERING: std::sync::OnceLock<Arc<Mutex<Option<Ordering>>>> = std::sync::OnceLock::new();
+static TRANSITION_TYPE: std::sync::OnceLock<Arc<Mutex<Option<TransitionType>>>> =
     std::sync::OnceLock::new();
-static LAYER: std::sync::OnceLock<Arc<Mutex<Option<String>>>> = std::sync::OnceLock::new();
+static LAYER: std::sync::OnceLock<Arc<Mutex<Option<Layer>>>> = std::sync::OnceLock::new();
 static WALLPAPER_PATH_CONFIG: std::sync::OnceLock<Arc<Mutex<Option<String>>>> =
     std::sync::OnceLock::new();
 
@@ -34,17 +34,17 @@ pub fn get_refresh_interval() -> Arc<Mutex<Option<u64>>> {
         .clone()
 }
 
-pub fn get_ordering() -> Arc<Mutex<Option<String>>> {
+pub fn get_ordering() -> Arc<Mutex<Option<Ordering>>> {
     ORDERING.get_or_init(|| Arc::new(Mutex::new(None))).clone()
 }
 
-pub fn get_transition_type() -> Arc<Mutex<Option<String>>> {
+pub fn get_transition_type() -> Arc<Mutex<Option<TransitionType>>> {
     TRANSITION_TYPE
         .get_or_init(|| Arc::new(Mutex::new(None)))
         .clone()
 }
 
-pub fn get_layer() -> Arc<Mutex<Option<String>>> {
+pub fn get_layer() -> Arc<Mutex<Option<Layer>>> {
     LAYER.get_or_init(|| Arc::new(Mutex::new(None))).clone()
 }
 
@@ -114,16 +114,10 @@ pub fn load_config() -> Config {
         .map(Layer::from)
         .unwrap_or_default();
 
-    if let Some(wallpaper_path) = &wallpaper_path {
-        if wallpaper_path.is_dir() {
-            let dir_store = get_wallpaper_dir();
-            let mut guard = dir_store.blocking_lock();
-            *guard = Some(wallpaper_path.clone());
-        } else if wallpaper_path.exists() {
-            let path_store = get_wallpaper_path();
-            let mut guard = path_store.blocking_lock();
-            *guard = Some(wallpaper_path.to_string_lossy().to_string());
-        }
+    if let Some(wallpaper_path) = &wallpaper_path && wallpaper_path.is_dir() {
+        let dir_store = get_wallpaper_dir();
+        let mut guard = dir_store.blocking_lock();
+        *guard = Some(wallpaper_path.clone());
     }
 
     {
@@ -135,22 +129,19 @@ pub fn load_config() -> Config {
     {
         let ordering_store = get_ordering();
         let mut guard = ordering_store.blocking_lock();
-        *guard = Some(match ordering {
-            Ordering::Sequential => "sequential".to_string(),
-            Ordering::Random => "random".to_string(),
-        });
+        *guard = Some(ordering);
     }
 
     {
         let transition_store = get_transition_type();
         let mut guard = transition_store.blocking_lock();
-        *guard = Some(transition_type.as_ref().to_string());
+        *guard = Some(transition_type);
     }
 
     {
         let layer_store = get_layer();
         let mut guard = layer_store.blocking_lock();
-        *guard = Some(layer.as_ref().to_string());
+        *guard = Some(layer);
     }
 
     {
@@ -202,6 +193,12 @@ fn write_config() {
         guard.clone()
     };
 
+    let layer = {
+        let store = get_layer();
+        let guard = store.blocking_lock();
+        guard.clone()
+    };
+
     let mut doc = DocumentMut::new();
 
     let defaults = doc.entry("defaults").or_insert(Item::Table(Table::new()));
@@ -216,21 +213,15 @@ fn write_config() {
     }
 
     if let Some(order) = ordering {
-        defaults_table.insert("ordering", order.into());
+        defaults_table.insert("ordering", order.as_ref().into());
     }
 
     if let Some(transition) = transition_type {
-        defaults_table.insert("transition_type", transition.into());
+        defaults_table.insert("transition_type", transition.as_ref().into());
     }
 
-    let layer = {
-        let store = get_layer();
-        let guard = store.blocking_lock();
-        guard.clone()
-    };
-
-    if let Some(l) = layer {
-        defaults_table.insert("layer", l.into());
+    if let Some(layer) = layer {
+        defaults_table.insert("layer", layer.as_ref().into());
     }
 
     if let Some(parent) = config_path.parent() {
@@ -287,7 +278,7 @@ pub async fn set_ordering(ordering: String) -> String {
 
     let ordering_store = get_ordering();
     let mut guard = ordering_store.lock().await;
-    *guard = Some(ordering.to_lowercase());
+    *guard = Some(ordering.as_str().into());
     drop(guard);
 
     write_config();
@@ -308,13 +299,13 @@ pub async fn set_transition_type(transition_type: String) -> String {
 
     let transition_store = get_transition_type();
     let mut guard = transition_store.lock().await;
-    *guard = Some(lower.clone());
+    *guard = Some(TransitionType::from(lower.as_str()));
     drop(guard);
 
     write_config();
 
-    debug!("Transition type set to: {}", transition_type);
-    format!("Transition type set to: {}", transition_type)
+    debug!("Transition type set to {}", transition_type);
+    format!("Transition type set to {}", transition_type)
 }
 
 pub async fn set_layer(layer: String) -> String {
@@ -329,7 +320,7 @@ pub async fn set_layer(layer: String) -> String {
 
     let layer_store = get_layer();
     let mut guard = layer_store.lock().await;
-    *guard = Some(lower.clone());
+    *guard = Some(Layer::from(lower.as_str()));
     drop(guard);
 
     write_config();

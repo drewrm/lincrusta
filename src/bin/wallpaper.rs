@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use std::process::ExitCode;
 use log::error;
+use std::process::ExitCode;
 use zbus::blocking::Connection;
 
 #[derive(Parser)]
@@ -111,13 +111,8 @@ const DBUS_OBJECT_PATH: &str = "/org/drewrm/wallpaperd";
 const DBUS_INTERFACE: &str = "org.drewrm.wallpaperd";
 
 fn call_method(conn: &Connection, method: &str, value: &str) -> Result<String, String> {
-    let proxy = zbus::blocking::Proxy::new(
-        conn,
-        DBUS_BUS_NAME,
-        DBUS_OBJECT_PATH,
-        DBUS_INTERFACE,
-    )
-    .map_err(|e| e.to_string())?;
+    let proxy = zbus::blocking::Proxy::new(conn, DBUS_BUS_NAME, DBUS_OBJECT_PATH, DBUS_INTERFACE)
+        .map_err(|e| e.to_string())?;
 
     proxy
         .call(method, &(value.to_string()))
@@ -125,13 +120,8 @@ fn call_method(conn: &Connection, method: &str, value: &str) -> Result<String, S
 }
 
 fn call_method_u32(conn: &Connection, method: &str, value: u32) -> Result<String, String> {
-    let proxy = zbus::blocking::Proxy::new(
-        conn,
-        DBUS_BUS_NAME,
-        DBUS_OBJECT_PATH,
-        DBUS_INTERFACE,
-    )
-    .map_err(|e| e.to_string())?;
+    let proxy = zbus::blocking::Proxy::new(conn, DBUS_BUS_NAME, DBUS_OBJECT_PATH, DBUS_INTERFACE)
+        .map_err(|e| e.to_string())?;
 
     proxy.call(method, &(value)).map_err(|e| e.to_string())
 }
