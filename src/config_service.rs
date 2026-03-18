@@ -47,47 +47,34 @@ pub fn load_config() -> Config {
         .and_then(|p| std::fs::read_to_string(p).ok())
         .and_then(|c| c.parse().ok());
 
-    let wallpaper_path = doc
-        .as_ref()
-        .and_then(|d| d.get("defaults"))
-        .and_then(|i| i.as_table())
-        .and_then(|t| t.get("wallpaper_path"))
-        .and_then(|v| v.as_str())
+    let defaults = doc.as_ref().and_then(|d| d.get("defaults")).and_then(|i| i.as_table());
+
+    let wallpaper_path = defaults
+        .and_then(|table| table.get("wallpaper_path"))
+        .and_then(|value| value.as_str())
         .filter(|s| !s.is_empty())
         .map(PathBuf::from);
 
-    let refresh_interval = doc
-        .as_ref()
-        .and_then(|d| d.get("defaults"))
-        .and_then(|i| i.as_table())
-        .and_then(|t| t.get("refresh_interval"))
-        .and_then(|v| v.as_integer())
+    let refresh_interval = defaults
+        .and_then(|table| table.get("refresh_interval"))
+        .and_then(|value| value.as_integer())
         .unwrap_or(30) as u64;
 
-    let ordering = doc
-        .as_ref()
-        .and_then(|d| d.get("defaults"))
-        .and_then(|i| i.as_table())
-        .and_then(|t| t.get("ordering"))
-        .and_then(|v| v.as_str())
+    let ordering = defaults
+        .and_then(|table| table.get("ordering"))
+        .and_then(|value| value.as_str())
         .map(Ordering::from)
         .unwrap_or_default();
 
-    let transition_type = doc
-        .as_ref()
-        .and_then(|d| d.get("defaults"))
-        .and_then(|i| i.as_table())
-        .and_then(|t| t.get("transition_type"))
-        .and_then(|v| v.as_str())
+    let transition_type = defaults
+        .and_then(|table| table.get("transition_type"))
+        .and_then(|value| value.as_str())
         .map(TransitionType::from)
         .unwrap_or_default();
 
-    let layer = doc
-        .as_ref()
-        .and_then(|d| d.get("defaults"))
-        .and_then(|i| i.as_table())
-        .and_then(|t| t.get("layer"))
-        .and_then(|v| v.as_str())
+    let layer = defaults
+        .and_then(|table| table.get("layer"))
+        .and_then(|value| value.as_str())
         .map(Layer::from)
         .unwrap_or_default();
     
@@ -141,27 +128,28 @@ fn write_config() {
 
 }
 
+fn update_config_and_write<F>(update: F)
+where
+    F: FnOnce(&mut Config),
+{
+    let config_store = get_config();
+    let mut guard = config_store.blocking_lock();
+    update(guard.as_mut().unwrap());
+    drop(guard);
+    write_config();
+}
+
 pub async fn set_wallpaper(path: String) -> String {
     let path_buf = PathBuf::from(&path);
 
-    let config_store = get_config();
-    let mut guard = config_store.lock().await;
-    guard.as_mut().unwrap().wallpaper_path = Some(path_buf);
-    drop(guard);
-
-    write_config();
+    update_config_and_write(|c| c.wallpaper_path = Some(path_buf));
 
     debug!("Wallpaper directory set to {}", path);
     format!("Wallpaper directory set to {}", path)
 }
 
 pub async fn set_refresh_interval(interval: u32) -> String {
-    let config_store = get_config();
-    let mut guard = config_store.lock().await;
-    guard.as_mut().unwrap().refresh_interval = interval as u64;
-    drop(guard);
-
-    write_config();
+    update_config_and_write(|c| c.refresh_interval = interval as u64);
 
     debug!("Refresh interval set to {} seconds", interval);
     format!("Refresh interval set to {} seconds", interval)
@@ -176,12 +164,7 @@ pub async fn set_ordering(ordering: String) -> String {
         );
     }
 
-    let config_store = get_config();
-    let mut guard = config_store.lock().await;
-    guard.as_mut().unwrap().ordering = ordering.as_str().into();
-    drop(guard);
-
-    write_config();
+    update_config_and_write(|c| c.ordering = ordering.as_str().into());
 
     debug!("Ordering set to {}", ordering);
     format!("Ordering set to {}", ordering)
@@ -197,12 +180,7 @@ pub async fn set_transition_type(transition_type: String) -> String {
         );
     }
 
-    let config_store = get_config();
-    let mut guard = config_store.lock().await;
-    guard.as_mut().unwrap().transition_type = TransitionType::from(lower.as_str());
-    drop(guard);
-
-    write_config();
+    update_config_and_write(|c| c.transition_type = TransitionType::from(lower.as_str()));
 
     debug!("Transition type set to {}", transition_type);
     format!("Transition type set to {}", transition_type)
@@ -218,12 +196,7 @@ pub async fn set_layer(layer: String) -> String {
         );
     }
 
-    let config_store = get_config();
-    let mut guard = config_store.lock().await;
-    guard.as_mut().unwrap().layer = Layer::from(lower.as_str());
-    drop(guard);
-
-    write_config();
+    update_config_and_write(|c| c.layer = Layer::from(lower.as_str()));
 
     debug!("Layer set to {}", layer);
     format!("Layer set to {}", layer)
