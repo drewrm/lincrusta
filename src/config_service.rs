@@ -1,51 +1,28 @@
 use log::debug;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex};
 use toml_edit::{DocumentMut, Item, Table};
 
 use crate::config::{Config, Layer, Ordering, TransitionType};
 
-static WALLPAPER_PATH: std::sync::OnceLock<Arc<Mutex<Option<String>>>> = std::sync::OnceLock::new();
-static WALLPAPER_DIR: std::sync::OnceLock<Arc<Mutex<Option<PathBuf>>>> = std::sync::OnceLock::new();
-static REFRESH_INTERVAL: std::sync::OnceLock<Arc<Mutex<Option<u64>>>> = std::sync::OnceLock::new();
-static ORDERING: std::sync::OnceLock<Arc<Mutex<Option<Ordering>>>> = std::sync::OnceLock::new();
-static TRANSITION_TYPE: std::sync::OnceLock<Arc<Mutex<Option<TransitionType>>>> =
-    std::sync::OnceLock::new();
-static LAYER: std::sync::OnceLock<Arc<Mutex<Option<Layer>>>> = std::sync::OnceLock::new();
-static WALLPAPER_PATH_CONFIG: std::sync::OnceLock<Arc<Mutex<Option<String>>>> =
-    std::sync::OnceLock::new();
+static CONFIG_TX: std::sync::OnceLock<mpsc::Sender<Config>> = std::sync::OnceLock::new();
+static CONFIG: std::sync::OnceLock<Arc<Mutex<Option<Config>>>> = std::sync::OnceLock::new();
 
-pub fn get_wallpaper_path() -> Arc<Mutex<Option<String>>> {
-    WALLPAPER_PATH
-        .get_or_init(|| Arc::new(Mutex::new(None)))
-        .clone()
+pub fn get_config() -> Arc<Mutex<Option<Config>>> {
+    CONFIG.get_or_init(|| Arc::new(Mutex::new(None))).clone()
 }
 
-pub fn get_wallpaper_dir() -> Arc<Mutex<Option<PathBuf>>> {
-    WALLPAPER_DIR
-        .get_or_init(|| Arc::new(Mutex::new(None)))
-        .clone()
+pub fn init_config_channel() -> mpsc::Receiver<Config> {
+    let (tx, rx) = mpsc::channel(100);
+    let _ = CONFIG_TX.set(tx);
+    rx
 }
 
-pub fn get_refresh_interval() -> Arc<Mutex<Option<u64>>> {
-    REFRESH_INTERVAL
-        .get_or_init(|| Arc::new(Mutex::new(None)))
-        .clone()
-}
-
-pub fn get_ordering() -> Arc<Mutex<Option<Ordering>>> {
-    ORDERING.get_or_init(|| Arc::new(Mutex::new(None))).clone()
-}
-
-pub fn get_transition_type() -> Arc<Mutex<Option<TransitionType>>> {
-    TRANSITION_TYPE
-        .get_or_init(|| Arc::new(Mutex::new(None)))
-        .clone()
-}
-
-pub fn get_layer() -> Arc<Mutex<Option<Layer>>> {
-    LAYER.get_or_init(|| Arc::new(Mutex::new(None))).clone()
+fn send_config_update(config: &Config) {
+    if let Some(tx) = CONFIG_TX.get() {
+        let _ = tx.try_send(config.clone());
+    }
 }
 
 fn get_config_path() -> Option<PathBuf> {
@@ -113,54 +90,20 @@ pub fn load_config() -> Config {
         .and_then(|v| v.as_str())
         .map(Layer::from)
         .unwrap_or_default();
-
-    if let Some(wallpaper_path) = &wallpaper_path && wallpaper_path.is_dir() {
-        let dir_store = get_wallpaper_dir();
-        let mut guard = dir_store.blocking_lock();
-        *guard = Some(wallpaper_path.clone());
-    }
-
-    {
-        let interval_store = get_refresh_interval();
-        let mut guard = interval_store.blocking_lock();
-        *guard = Some(refresh_interval);
-    }
-
-    {
-        let ordering_store = get_ordering();
-        let mut guard = ordering_store.blocking_lock();
-        *guard = Some(ordering);
-    }
-
-    {
-        let transition_store = get_transition_type();
-        let mut guard = transition_store.blocking_lock();
-        *guard = Some(transition_type);
-    }
-
-    {
-        let layer_store = get_layer();
-        let mut guard = layer_store.blocking_lock();
-        *guard = Some(layer);
-    }
-
-    {
-        let config_path_store = WALLPAPER_PATH_CONFIG
-            .get_or_init(|| Arc::new(Mutex::new(None)))
-            .clone();
-        let mut guard = config_path_store.blocking_lock();
-        *guard = wallpaper_path
-            .clone()
-            .map(|p| p.to_string_lossy().to_string());
-    }
-
-    Config {
+    
+    let config = Config {
         wallpaper_path,
         refresh_interval,
         ordering,
         transition_type,
         layer,
-    }
+    }; 
+
+    let config_store = get_config();
+    let mut guard = config_store.blocking_lock();
+    *guard = Some(config.clone());
+
+    config
 }
 
 fn write_config() {
@@ -169,59 +112,24 @@ fn write_config() {
         None => return,
     };
 
-    let wallpaper_path = {
-        let store = WALLPAPER_PATH_CONFIG.get_or_init(|| Arc::new(Mutex::new(None)));
-        let guard = store.blocking_lock();
-        guard.clone()
-    };
-
-    let refresh_interval = {
-        let store = get_refresh_interval();
-        let guard = store.blocking_lock();
-        *guard
-    };
-
-    let ordering = {
-        let store = get_ordering();
-        let guard = store.blocking_lock();
-        guard.clone()
-    };
-
-    let transition_type = {
-        let store = get_transition_type();
-        let guard = store.blocking_lock();
-        guard.clone()
-    };
-
-    let layer = {
-        let store = get_layer();
+    let config = {
+        let store = get_config();
         let guard = store.blocking_lock();
         guard.clone()
     };
 
     let mut doc = DocumentMut::new();
-
     let defaults = doc.entry("defaults").or_insert(Item::Table(Table::new()));
     let defaults_table = defaults.as_table_mut().unwrap();
 
-    if let Some(path) = wallpaper_path {
-        defaults_table.insert("wallpaper_path", path.into());
-    }
-
-    if let Some(interval) = refresh_interval {
-        defaults_table.insert("refresh_interval", (interval as i64).into());
-    }
-
-    if let Some(order) = ordering {
-        defaults_table.insert("ordering", order.as_ref().into());
-    }
-
-    if let Some(transition) = transition_type {
-        defaults_table.insert("transition_type", transition.as_ref().into());
-    }
-
-    if let Some(layer) = layer {
-        defaults_table.insert("layer", layer.as_ref().into());
+    if let Some(config) = config {
+        defaults_table.insert("wallpaper_path", config.wallpaper_path.as_ref().unwrap().to_string_lossy().as_ref().into());
+        defaults_table.insert("refresh_interval", (config.refresh_interval as i64).into());
+        defaults_table.insert("ordering", config.ordering.as_ref().into());
+        defaults_table.insert("transition_type", config.transition_type.as_ref().into());
+        defaults_table.insert("layer", config.layer.as_ref().into());
+        send_config_update(&config);
+        drop(config);
     }
 
     if let Some(parent) = config_path.parent() {
@@ -230,24 +138,16 @@ fn write_config() {
 
     let content = doc.to_string();
     let _ = std::fs::write(&config_path, content);
+
 }
 
 pub async fn set_wallpaper(path: String) -> String {
     let path_buf = PathBuf::from(&path);
 
-    let wallpaper_dir = get_wallpaper_dir();
-    let mut guard = wallpaper_dir.lock().await;
-    *guard = Some(path_buf.clone());
-
-    let wallpaper_path = get_wallpaper_path();
-    let mut path_guard = wallpaper_path.lock().await;
-    *path_guard = None;
-
-    {
-        let store = WALLPAPER_PATH_CONFIG.get_or_init(|| Arc::new(Mutex::new(None)));
-        let mut guard = store.lock().await;
-        *guard = Some(path.clone());
-    }
+    let config_store = get_config();
+    let mut guard = config_store.lock().await;
+    guard.as_mut().unwrap().wallpaper_path = Some(path_buf);
+    drop(guard);
 
     write_config();
 
@@ -256,9 +156,9 @@ pub async fn set_wallpaper(path: String) -> String {
 }
 
 pub async fn set_refresh_interval(interval: u32) -> String {
-    let refresh_interval = get_refresh_interval();
-    let mut guard = refresh_interval.lock().await;
-    *guard = Some(interval as u64);
+    let config_store = get_config();
+    let mut guard = config_store.lock().await;
+    guard.as_mut().unwrap().refresh_interval = interval as u64;
     drop(guard);
 
     write_config();
@@ -276,9 +176,9 @@ pub async fn set_ordering(ordering: String) -> String {
         );
     }
 
-    let ordering_store = get_ordering();
-    let mut guard = ordering_store.lock().await;
-    *guard = Some(ordering.as_str().into());
+    let config_store = get_config();
+    let mut guard = config_store.lock().await;
+    guard.as_mut().unwrap().ordering = ordering.as_str().into();
     drop(guard);
 
     write_config();
@@ -297,9 +197,9 @@ pub async fn set_transition_type(transition_type: String) -> String {
         );
     }
 
-    let transition_store = get_transition_type();
-    let mut guard = transition_store.lock().await;
-    *guard = Some(TransitionType::from(lower.as_str()));
+    let config_store = get_config();
+    let mut guard = config_store.lock().await;
+    guard.as_mut().unwrap().transition_type = TransitionType::from(lower.as_str());
     drop(guard);
 
     write_config();
@@ -318,9 +218,9 @@ pub async fn set_layer(layer: String) -> String {
         );
     }
 
-    let layer_store = get_layer();
-    let mut guard = layer_store.lock().await;
-    *guard = Some(Layer::from(lower.as_str()));
+    let config_store = get_config();
+    let mut guard = config_store.lock().await;
+    guard.as_mut().unwrap().layer = Layer::from(lower.as_str());
     drop(guard);
 
     write_config();
