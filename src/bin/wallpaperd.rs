@@ -1,4 +1,4 @@
-use glib::ControlFlow;
+use gtk4::glib::ControlFlow;
 use gtk::{Application, Builder, Window, glib::source, prelude::*};
 use gtk4 as gtk;
 use gtk4::StackTransitionType;
