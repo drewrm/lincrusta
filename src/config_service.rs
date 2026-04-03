@@ -41,6 +41,8 @@ fn get_config_path() -> Option<PathBuf> {
 pub fn load_config() -> Config {
     let config_path = get_config_path();
 
+    let config_exists = config_path.as_ref().map_or(false, |p| p.exists());
+
     let doc: Option<DocumentMut> = config_path
         .as_ref()
         .filter(|p| p.exists())
@@ -53,7 +55,19 @@ pub fn load_config() -> Config {
         .and_then(|table| table.get("wallpaper_path"))
         .and_then(|value| value.as_str())
         .filter(|s| !s.is_empty())
-        .map(PathBuf::from);
+        .map(|s| {
+            let pb = PathBuf::from(s);
+            let s = pb.to_string_lossy();
+            if s.starts_with("~/") {
+                if let Ok(home) = std::env::var("HOME") {
+                    return PathBuf::from(home).join(&s[2..]);
+                }
+            }
+            pb
+        })
+        .or_else(|| {
+            std::env::var("HOME").ok().map(|h| PathBuf::from(h).join("Pictures"))
+        });
 
     let refresh_interval = defaults
         .and_then(|table| table.get("refresh_interval"))
@@ -84,7 +98,11 @@ pub fn load_config() -> Config {
         ordering,
         transition_type,
         layer,
-    }; 
+    };
+
+    if !config_exists {
+        write_config();
+    }
 
     let config_store = get_config();
     let mut guard = config_store.blocking_lock();
