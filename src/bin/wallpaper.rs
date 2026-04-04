@@ -14,7 +14,8 @@ Examples:
   wallpaper-cli refresh-interval 30
   wallpaper-cli ordering random
   wallpaper-cli transition-type slide_left
-  wallpaper-cli layer overlay"
+  wallpaper-cli layer overlay
+  wallpaper-cli allow-animated true"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -47,6 +48,11 @@ enum Commands {
     Layer {
         #[arg(help = "Layer: background, bottom, top, or overlay", value_enum)]
         layer: LayerArg,
+    },
+    #[command(about = "Allow animated/video wallpapers")]
+    AllowAnimated {
+        #[arg(help = "Enable or disable animated wallpapers", value_enum)]
+        allow: BoolArg,
     },
 }
 
@@ -106,6 +112,12 @@ enum LayerArg {
     Overlay,
 }
 
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum BoolArg {
+    True,
+    False,
+}
+
 const DBUS_BUS_NAME: &str = "org.drewrm.wallpaperd";
 const DBUS_OBJECT_PATH: &str = "/org/drewrm/wallpaperd";
 const DBUS_INTERFACE: &str = "org.drewrm.wallpaperd";
@@ -120,6 +132,13 @@ fn call_method(conn: &Connection, method: &str, value: &str) -> Result<String, S
 }
 
 fn call_method_u32(conn: &Connection, method: &str, value: u32) -> Result<String, String> {
+    let proxy = zbus::blocking::Proxy::new(conn, DBUS_BUS_NAME, DBUS_OBJECT_PATH, DBUS_INTERFACE)
+        .map_err(|e| e.to_string())?;
+
+    proxy.call(method, &(value)).map_err(|e| e.to_string())
+}
+
+fn call_method_bool(conn: &Connection, method: &str, value: bool) -> Result<String, String> {
     let proxy = zbus::blocking::Proxy::new(conn, DBUS_BUS_NAME, DBUS_OBJECT_PATH, DBUS_INTERFACE)
         .map_err(|e| e.to_string())?;
 
@@ -207,6 +226,19 @@ fn main() -> ExitCode {
                 LayerArg::Overlay => "overlay",
             };
             match call_method(&conn, "SetLayer", value) {
+                Ok(result) => println!("{}", result),
+                Err(e) => {
+                    error!("Error: {}", e);
+                    return ExitCode::FAILURE;
+                }
+            }
+        }
+        Commands::AllowAnimated { allow } => {
+            let value = match allow {
+                BoolArg::True => true,
+                BoolArg::False => false,
+            };
+            match call_method_bool(&conn, "SetAllowAnimated", value) {
                 Ok(result) => println!("{}", result),
                 Err(e) => {
                     error!("Error: {}", e);

@@ -11,7 +11,7 @@ use wallpaper::config::Ordering as ConfigOrdering;
 use wallpaper::config_service::{
     init_config_channel, load_config,
 };
-use wallpaper::ordering::{RandomOrdering, SequentialOrdering, get_next_image};
+use wallpaper::ordering::{RandomOrdering, SequentialOrdering, get_next_image, is_video_file, WallpaperOrdering};
 
 fn build_ui(application: &Application) {
     let mut config = load_config();
@@ -46,11 +46,17 @@ fn build_ui(application: &Application) {
         .object("wallpaper-picture-2")
         .expect("Couldn't load picture 2");
 
-    let current_picture: std::sync::Mutex<u32> = std::sync::Mutex::new(1);
+    let video1 = gtk::Video::new();
+    let video2 = gtk::Video::new();
+
+    stack.add_child(&video1);
+    stack.add_child(&video2);
+
+    let current_slot: std::sync::Mutex<u32> = std::sync::Mutex::new(1);
 
     let sequential_ordering =
-        Arc::new(SequentialOrdering::new()) as Arc<dyn wallpaper::ordering::ImageOrdering>;
-    let random_ordering = Arc::new(RandomOrdering) as Arc<dyn wallpaper::ordering::ImageOrdering>;
+        Arc::new(SequentialOrdering::new()) as Arc<dyn WallpaperOrdering>;
+    let random_ordering = Arc::new(RandomOrdering) as Arc<dyn WallpaperOrdering>;
 
     let stack_clone = stack.clone();
     let set_stack_transition = move |config_transition_type: StackTransitionType| {
@@ -63,16 +69,48 @@ fn build_ui(application: &Application) {
     };
 
     let stack_for_image = stack.clone();
+    let video1_clone = video1.clone();
+    let video2_clone = video2.clone();
+    let allow_animated = config.allow_animated;
 
-    let set_image = move |path: &str| {
-        let mut current = current_picture.lock().unwrap();
+    let set_wallpaper = move |path: &str| {
+        let path_buf = std::path::PathBuf::from(path);
+        let is_video = is_video_file(&path_buf, allow_animated);
+        
+        let mut current = current_slot.lock().unwrap();
         if *current == 1 {
-            picture2.set_filename(Some(path));
-            stack_for_image.set_visible_child(&picture2);
+            if is_video {
+                picture1.set_filename(None::<&std::path::Path>);
+                picture2.set_filename(None::<&std::path::Path>);
+                video1_clone.set_filename(None::<&std::path::Path>);
+                video2_clone.set_loop(true);
+                video2_clone.set_autoplay(true);
+                video2_clone.set_filename(Some(path));
+                stack_for_image.set_visible_child(&video2_clone);
+            } else {
+                video1_clone.set_filename(None::<&std::path::Path>);
+                video2_clone.set_filename(None::<&std::path::Path>);
+                picture1.set_filename(None::<&std::path::Path>);
+                picture2.set_filename(Some(path));
+                stack_for_image.set_visible_child(&picture2);
+            }
             *current = 2;
         } else {
-            picture1.set_filename(Some(path));
-            stack_for_image.set_visible_child(&picture1);
+            if is_video {
+                picture1.set_filename(None::<&std::path::Path>);
+                picture2.set_filename(None::<&std::path::Path>);
+                video2_clone.set_filename(None::<&std::path::Path>);
+                video1_clone.set_loop(true);
+                video1_clone.set_autoplay(true);
+                video1_clone.set_filename(Some(path));
+                stack_for_image.set_visible_child(&video1_clone);
+            } else {
+                video1_clone.set_filename(None::<&std::path::Path>);
+                video2_clone.set_filename(None::<&std::path::Path>);
+                picture2.set_filename(None::<&std::path::Path>);
+                picture1.set_filename(Some(path));
+                stack_for_image.set_visible_child(&picture1);
+            }
             *current = 1;
         }
     };
@@ -108,8 +146,8 @@ fn build_ui(application: &Application) {
                 _ => random_ordering.clone(),
             };
 
-            if let Some(path) = get_next_image(config.wallpaper_path.as_ref().unwrap().as_path(), strategy.as_ref()) {
-                set_image(&path);
+            if let Some(path) = get_next_image(config.wallpaper_path.as_ref().unwrap().as_path(), strategy.as_ref(), config.allow_animated) {
+                set_wallpaper(&path);
             }
         }
         ControlFlow::Continue

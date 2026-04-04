@@ -13,6 +13,14 @@ pub fn get_config() -> Arc<Mutex<Option<Config>>> {
     CONFIG.get_or_init(|| Arc::new(Mutex::new(None))).clone()
 }
 
+#[cfg(test)]
+pub fn reset_config_state() {
+    if let Some(c) = CONFIG.get() {
+        let mut guard = c.blocking_lock();
+        let _ = guard.take();
+    }
+}
+
 pub fn init_config_channel() -> mpsc::Receiver<Config> {
     let (tx, rx) = mpsc::channel(100);
     let _ = CONFIG_TX.set(tx);
@@ -91,6 +99,11 @@ pub fn load_config() -> Config {
         .and_then(|value| value.as_str())
         .map(Layer::from)
         .unwrap_or_default();
+
+    let allow_animated = defaults
+        .and_then(|table| table.get("allow_animated"))
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
     
     let config = Config {
         wallpaper_path,
@@ -98,6 +111,7 @@ pub fn load_config() -> Config {
         ordering,
         transition_type,
         layer,
+        allow_animated,
     };
 
     if !config_exists {
@@ -133,6 +147,7 @@ fn write_config() {
         defaults_table.insert("ordering", config.ordering.as_ref().into());
         defaults_table.insert("transition_type", config.transition_type.as_ref().into());
         defaults_table.insert("layer", config.layer.as_ref().into());
+        defaults_table.insert("allow_animated", config.allow_animated.into());
         send_config_update(&config);
         drop(config);
     }
@@ -220,12 +235,30 @@ pub async fn set_layer(layer: String) -> String {
     format!("Layer set to {}", layer)
 }
 
+pub async fn set_allow_animated(allow: bool) -> String {
+    update_config_and_write(|c| c.allow_animated = allow);
+
+    debug!("Allow animated set to {}", allow);
+    format!("Allow animated set to {}", allow)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
+    use std::sync::Mutex;
+
+    static TEST_MUTEX: Mutex<()> = Mutex::new(());
+
+    fn setup() {
+        reset_config_state();
+        std::mem::drop(TEST_MUTEX.lock());
+    }
 
     #[test]
+    #[serial]
     fn test_load_config_with_defaults() {
+        setup();
         // Set up test config
         let temp_dir = tempfile::tempdir().unwrap();
         let config_path = temp_dir.path().join("org.drewrm.wallpaperd");
@@ -259,7 +292,9 @@ ordering = "random"
     }
 
     #[test]
+    #[serial]
     fn test_load_config_with_empty_values() {
+        setup();
         // Set up test config with empty values
         let temp_dir = tempfile::tempdir().unwrap();
         let config_path = temp_dir.path().join("org.drewrm.wallpaperd");
@@ -278,6 +313,40 @@ ordering = "random"
         // Should have defaults
         assert_eq!(config.refresh_interval, 30);
         assert_eq!(config.ordering, Ordering::Sequential);
+        assert!(!config.allow_animated);
+
+        unsafe {
+            std::env::remove_var("XDG_CONFIG_HOME");
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_load_config_allow_animated_true() {
+        setup();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("org.drewrm.wallpaperd");
+        std::fs::create_dir_all(&config_path).unwrap();
+
+        let config_file = config_path.join("wallpaperd.toml");
+        std::fs::write(
+            &config_file,
+            r#"
+[defaults]
+wallpaper_path = "/test/path"
+allow_animated = true
+"#,
+        )
+        .unwrap();
+
+        let parent = temp_dir.path().to_path_buf();
+        unsafe {
+            std::env::set_var("XDG_CONFIG_HOME", &parent);
+        }
+
+        let config = load_config();
+
+        assert!(config.allow_animated);
 
         unsafe {
             std::env::remove_var("XDG_CONFIG_HOME");

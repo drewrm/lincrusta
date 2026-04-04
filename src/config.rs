@@ -268,4 +268,5 @@ pub struct Config {
     pub ordering: Ordering,
     pub transition_type: TransitionType,
     pub layer: Layer,
+    pub allow_animated: bool,
 }
