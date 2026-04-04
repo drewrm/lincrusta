@@ -18,6 +18,7 @@ The wallpaper daemon runs as a GTK4 application using [gtk4-layer-shell](https:/
 - Two ordering modes: `random` or `sequential`
 - 19 transition effects between wallpaper changes
 - Configurable layer shell layer
+- Support for animated/video wallpapers (mp4, webm, mov, avi, mkv)
 
 **Configuration:**
 
@@ -29,6 +30,7 @@ refresh_interval = 30
 ordering = "sequential"
 transition_type = "crossfade"
 layer = "background"
+allow_animated = false
 ```
 
 **Layer options:**
@@ -64,6 +66,7 @@ wallpaper-cli <command> [options]
 | `ordering <mode>` | Set slideshow ordering: `random` or `sequential` |
 | `transition-type <effect>` | Set transition effect (see list below) |
 | `layer <layer>` | Set layer shell layer: `background`, `bottom`, `top`, or `overlay` |
+| `allow-animated <bool>` | Enable or disable animated/video wallpapers: `true` or `false` |
 
 **Examples:**
 ```bash
@@ -76,6 +79,9 @@ wallpaper-cli refresh-interval 30
 wallpaper-cli ordering random
 wallpaper-cli transition-type slide_left
 wallpaper-cli layer overlay
+
+# Enable animated/video wallpapers
+wallpaper-cli allow-animated true
 ```
 
 ## Building
