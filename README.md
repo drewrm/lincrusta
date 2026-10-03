@@ -137,6 +137,14 @@ This project uses [release-please](https://github.com/google-github-actions/rele
 2. **Merge the release PR** → Creates tag + updates `Cargo.toml`/`Cargo.lock`
 3. **Tag push** → Triggers build workflow → Creates `.deb` + GitHub Release
 
+### Required GitHub Setting
+
+For release-please to create pull requests, the repository must allow GitHub Actions to create and approve PRs:
+
+**Settings → Actions → General → Workflow permissions → ✅ "Allow GitHub Actions to create and approve pull requests"**
+
+Without this setting, release-please will fail with: `GitHub Actions is not permitted to create or approve pull requests.`
+
 ### Commit format
 
 Use [Conventional Commits](https://www.conventionalcommits.org/):
@@ -177,6 +185,33 @@ For manual control, tag directly:
 cargo release patch --execute --no-confirm --no-publish --no-verify
 git push origin main --tags
 ```
+
+### Alternative: Auto-release on merge (no PR required)
+
+If you prefer not to enable the GitHub Actions PR creation setting, add this workflow instead of release-please:
+
+**`.github/workflows/auto-release.yml`**
+```yaml
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  auto-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { token: ${{ secrets.GITHUB_TOKEN }} }
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-release
+      - run: cargo release patch --execute --no-confirm --no-publish --no-verify
+      - run: git push origin main --tags
+```
+
+This bumps the patch version on every merge to main and pushes the tag directly (no PR).
 
 ### Installing releases
 

@@ -17,6 +17,7 @@ jobs:
           release-type: simple
           package-name: lincrusta
           version-file: Cargo.toml
+          create-release: false
           changelog-sections: |
             [
               {"type": "feat", "section": "Features", "hidden": false},
