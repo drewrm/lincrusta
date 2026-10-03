@@ -69,14 +69,8 @@ jobs:
           dpkg-deb --build deb-package "${PKG_NAME}_${VERSION}-1_amd64.deb"
           echo "DEB_FILE=${PKG_NAME}_${VERSION}-1_amd64.deb" >> "$GITHUB_ENV"
 
-      - name: Create source package
-        run: |
-          git archive --format=tar.gz --prefix=lincrusta-${{ github.ref_name }}/ -o lincrusta-${{ github.ref_name }}.tar.gz ${{ github.ref_name }}
-
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            ${{ env.DEB_FILE }}
-            lincrusta-${{ github.ref_name }}.tar.gz
+          files: ${{ env.DEB_FILE }}
           generate_release_notes: true

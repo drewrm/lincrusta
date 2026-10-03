@@ -2,6 +2,12 @@
 name = "wallpaper"
 version = "0.1.1"
 edition = "2024"
+description = "Wallpaper daemon and CLI for Wayland"
+license = "GPL-2.0-only"
+repository = "https://github.com/drewrm/wallpaper"
+homepage = "https://github.com/drewrm/wallpaper"
+categories = ["command-line-utilities", "desktop-environment"]
+keywords = ["wallpaper", "wayland", "gtk4", "daemon"]
 
 [[bin]]
 name = "wallpaperd"

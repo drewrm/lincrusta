@@ -126,3 +126,81 @@ systemctl --user start wallpaperd.service
 ```
 
 *Note* - Only a single instance of the daemon can run at any one time.
+
+## Releases
+
+This project uses [release-please](https://github.com/google-github-actions/release-please-action) for automated versioning and releases.
+
+### How it works
+
+1. **Conventional commits** on `main` trigger a release PR
+2. **Merge the release PR** → Creates tag + updates `Cargo.toml`/`Cargo.lock`
+3. **Tag push** → Triggers build workflow → Creates `.deb` + GitHub Release
+
+### Commit format
+
+Use [Conventional Commits](https://www.conventionalcommits.org/):
+
+```bash
+feat: add new feature
+fix: bug fix
+chore: maintenance task
+docs: documentation changes
+refactor: code refactoring
+test: adding tests
+```
+
+| Type | Version bump |
+|------|--------------|
+| `feat:` | **minor** (0.1.x → 0.2.0) |
+| `fix:`, `chore:`, `docs:`, `refactor:`, `test:` | **patch** (0.1.x → 0.1.x+1) |
+| `BREAKING CHANGE:` in footer | **major** (0.x.x → 1.0.0) |
+
+### Example workflow
+
+```bash
+# Make changes
+git add .
+git commit -m "feat: add new transition effect"
+git push origin main
+
+# → release-please creates/updates a release PR
+# → Merge the PR when ready
+# → Tag + GitHub Release created automatically
+```
+
+### Manual release (optional)
+
+For manual control, tag directly:
+
+```bash
+cargo release patch --execute --no-confirm --no-publish --no-verify
+git push origin main --tags
+```
+
+### Installing releases
+
+Download the `.deb` from [GitHub Releases](https://github.com/drewrm/wallpaper/releases) and install:
+
+```bash
+sudo dpkg -i lincrusta_0.1.4-1_amd64.deb
+```
+
+Or build from source:
+
+```bash
+cargo install --path .
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make changes with conventional commits
+4. Run pre-commit checks: `prek run`
+5. Open a pull request
+
+Pre-commit hooks run:
+- `cargo fmt`, `cargo clippy`, `cargo test`
+- `actionlint` for GitHub Actions
+- Standard checks (trailing whitespace, YAML/TOML/JSON syntax, etc.)
