@@ -1,7 +1,8 @@
 use zbus::{Result, connection::Builder, interface};
 
 use crate::config_service::{
-    set_allow_animated, set_layer, set_ordering, set_refresh_interval, set_transition_type, set_wallpaper,
+    set_allow_animated, set_layer, set_ordering, set_refresh_interval, set_transition_type,
+    set_wallpaper,
 };
 
 struct WallpaperService;

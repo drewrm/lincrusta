@@ -1,0 +1,31 @@
+name: Setup Rust Environment
+description: Install deps, setup Rust toolchain, and cache Cargo
+
+runs:
+  using: composite
+  steps:
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libgtk-4-dev \
+          libglib2.0-dev \
+          libgtk-4-1 \
+          pkg-config \
+          libdbus-1-dev \
+          libgtk4-layer-shell-dev
+      shell: bash
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache Cargo registry
+      uses: actions/cache@v6
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
