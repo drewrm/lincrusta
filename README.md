@@ -98,7 +98,7 @@ Install the binaries to `~/cargo/bin`:
 cargo install --path .
 ```
 
-To run as a systemd service add the following unit file to `~/.config/systemd/user/wallpaperd.service` 
+To run as a systemd service add the following unit file to `~/.config/systemd/user/wallpaperd.service`
 
 ```
 [Unit]

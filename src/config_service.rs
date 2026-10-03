@@ -1,7 +1,7 @@
 use log::debug;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 use toml_edit::{DocumentMut, Item, Table};
 
 use crate::config::{Config, Layer, Ordering, TransitionType};
@@ -49,7 +49,7 @@ fn get_config_path() -> Option<PathBuf> {
 pub fn load_config() -> Config {
     let config_path = get_config_path();
 
-    let config_exists = config_path.as_ref().map_or(false, |p| p.exists());
+    let config_exists = config_path.as_ref().is_some_and(|p| p.exists());
 
     let doc: Option<DocumentMut> = config_path
         .as_ref()
@@ -57,7 +57,10 @@ pub fn load_config() -> Config {
         .and_then(|p| std::fs::read_to_string(p).ok())
         .and_then(|c| c.parse().ok());
 
-    let defaults = doc.as_ref().and_then(|d| d.get("defaults")).and_then(|i| i.as_table());
+    let defaults = doc
+        .as_ref()
+        .and_then(|d| d.get("defaults"))
+        .and_then(|i| i.as_table());
 
     let wallpaper_path = defaults
         .and_then(|table| table.get("wallpaper_path"))
@@ -66,15 +69,17 @@ pub fn load_config() -> Config {
         .map(|s| {
             let pb = PathBuf::from(s);
             let s = pb.to_string_lossy();
-            if s.starts_with("~/") {
-                if let Ok(home) = std::env::var("HOME") {
-                    return PathBuf::from(home).join(&s[2..]);
-                }
+            if s.starts_with("~/")
+                && let Ok(home) = std::env::var("HOME")
+            {
+                return PathBuf::from(home).join(s.strip_prefix("~/").unwrap());
             }
             pb
         })
         .or_else(|| {
-            std::env::var("HOME").ok().map(|h| PathBuf::from(h).join("Pictures"))
+            std::env::var("HOME")
+                .ok()
+                .map(|h| PathBuf::from(h).join("Pictures"))
         });
 
     let refresh_interval = defaults
@@ -104,7 +109,7 @@ pub fn load_config() -> Config {
         .and_then(|table| table.get("allow_animated"))
         .and_then(|value| value.as_bool())
         .unwrap_or(false);
-    
+
     let config = Config {
         wallpaper_path,
         refresh_interval,
@@ -142,7 +147,16 @@ fn write_config() {
     let defaults_table = defaults.as_table_mut().unwrap();
 
     if let Some(config) = config {
-        defaults_table.insert("wallpaper_path", config.wallpaper_path.as_ref().unwrap().to_string_lossy().as_ref().into());
+        defaults_table.insert(
+            "wallpaper_path",
+            config
+                .wallpaper_path
+                .as_ref()
+                .unwrap()
+                .to_string_lossy()
+                .as_ref()
+                .into(),
+        );
         defaults_table.insert("refresh_interval", (config.refresh_interval as i64).into());
         defaults_table.insert("ordering", config.ordering.as_ref().into());
         defaults_table.insert("transition_type", config.transition_type.as_ref().into());
@@ -158,7 +172,6 @@ fn write_config() {
 
     let content = doc.to_string();
     let _ = std::fs::write(&config_path, content);
-
 }
 
 fn update_config_and_write<F>(update: F)

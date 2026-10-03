@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, closed]
+
+jobs:
+  test-and-build:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Rust environment
+        uses: ./.github/actions/setup-rust
+
+      - name: Run tests
+        run: cargo test --all-targets
+
+      - name: Build release package
+        run: cargo build --release --all-targets
+
+      - name: List built binaries
+        run: ls -la target/release/

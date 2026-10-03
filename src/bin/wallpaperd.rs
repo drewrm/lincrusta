@@ -1,17 +1,17 @@
-use gtk4::glib::ControlFlow;
 use gtk::{Application, Builder, Window, glib::source, prelude::*};
 use gtk4 as gtk;
 use gtk4::StackTransitionType;
+use gtk4::glib::ControlFlow;
 use gtk4_layer_shell::LayerShell;
 use log::error;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use wallpaper::config::Ordering as ConfigOrdering;
-use wallpaper::config_service::{
-    init_config_channel, load_config,
+use wallpaper::config_service::{init_config_channel, load_config};
+use wallpaper::ordering::{
+    RandomOrdering, SequentialOrdering, WallpaperOrdering, get_next_image, is_video_file,
 };
-use wallpaper::ordering::{RandomOrdering, SequentialOrdering, get_next_image, is_video_file, WallpaperOrdering};
 
 fn build_ui(application: &Application) {
     let mut config = load_config();
@@ -54,8 +54,7 @@ fn build_ui(application: &Application) {
 
     let current_slot: std::sync::Mutex<u32> = std::sync::Mutex::new(1);
 
-    let sequential_ordering =
-        Arc::new(SequentialOrdering::new()) as Arc<dyn WallpaperOrdering>;
+    let sequential_ordering = Arc::new(SequentialOrdering::new()) as Arc<dyn WallpaperOrdering>;
     let random_ordering = Arc::new(RandomOrdering) as Arc<dyn WallpaperOrdering>;
 
     let stack_clone = stack.clone();
@@ -76,7 +75,7 @@ fn build_ui(application: &Application) {
     let set_wallpaper = move |path: &str| {
         let path_buf = std::path::PathBuf::from(path);
         let is_video = is_video_file(&path_buf, allow_animated);
-        
+
         let mut current = current_slot.lock().unwrap();
         if *current == 1 {
             if is_video {
@@ -122,7 +121,6 @@ fn build_ui(application: &Application) {
             .as_secs(),
     ));
 
-
     source::timeout_add_local(std::time::Duration::from_millis(500), move || {
         if let Ok(updated_config) = config_rx.try_recv() {
             config = updated_config;
@@ -146,7 +144,11 @@ fn build_ui(application: &Application) {
                 _ => random_ordering.clone(),
             };
 
-            if let Some(path) = get_next_image(config.wallpaper_path.as_ref().unwrap().as_path(), strategy.as_ref(), config.allow_animated) {
+            if let Some(path) = get_next_image(
+                config.wallpaper_path.as_ref().unwrap().as_path(),
+                strategy.as_ref(),
+                config.allow_animated,
+            ) {
                 set_wallpaper(&path);
             }
         }
