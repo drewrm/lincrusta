@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.4](https://github.com/drewrm/lincrusta/compare/v0.1.3...v0.1.4) (2026-10-03)
+
+
+### Bug Fixes
+
+* CIR-6 Use cargo release-please action ([#39](https://github.com/drewrm/lincrusta/issues/39)) ([ca6f69c](https://github.com/drewrm/lincrusta/commit/ca6f69c1979b216a7d3855cd4fa1b5274fc253e1))
+* CIR-6: Release-type should be rust ([#40](https://github.com/drewrm/lincrusta/issues/40)) ([8b618fb](https://github.com/drewrm/lincrusta/commit/8b618fba1b5fd181ec6f4eb6e49af6a46e46eaa0))
+
 ## [0.1.3](https://github.com/drewrm/lincrusta/compare/v0.1.2...v0.1.3) (2026-10-03)
 
 
