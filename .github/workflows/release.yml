@@ -18,6 +18,9 @@ jobs:
       - name: Setup Rust environment
         uses: ./.github/actions/setup-rust
 
+      - name: Run tests
+        run: cargo test --all-targets
+
       - name: Build release binaries
         run: cargo build --release --all-targets
 
